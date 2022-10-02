@@ -33,6 +33,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 from tqdm.auto import tqdm
+import psutil
+process = psutil.Process(os.getpid())
 
 
 # Integrations must be imported before ML frameworks:
@@ -1685,7 +1687,7 @@ class Trainer:
                     # Otherwise we need to call the whooooole sampler cause there is some random operation added
                     # AT THE VERY END!
                     _ = list(train_dataloader.sampler)
-
+        
         for epoch in range(epochs_trained, num_train_epochs):
             if isinstance(train_dataloader, DataLoader) and isinstance(train_dataloader.sampler, DistributedSampler):
                 train_dataloader.sampler.set_epoch(epoch)
@@ -1714,7 +1716,8 @@ class Trainer:
 
             step = -1
             for step, inputs in enumerate(epoch_iterator):
-
+                 
+                print("Memory usage after model init but before training :", process.memory_info().rss/1024/1024/1024, "GB", flush=True)
                 # Skip past any already trained steps if resuming training
                 if steps_trained_in_current_epoch > 0:
                     steps_trained_in_current_epoch -= 1
@@ -1752,7 +1755,8 @@ class Trainer:
                     tr_loss += tr_loss_step
 
                 self.current_flos += float(self.floating_point_ops(inputs))
-
+                
+                print("Memory usage before optimizer step :", process.memory_info().rss/1024/1024/1024, "GB", flush=True)
                 # Optimizer step for deepspeed must be called on every step regardless of the value of gradient_accumulation_steps
                 if self.deepspeed:
                     self.deepspeed.step()
@@ -1788,7 +1792,7 @@ class Trainer:
                                 amp.master_params(self.optimizer) if self.use_apex else model.parameters(),
                                 args.max_grad_norm,
                             )
-
+                    
                     # Optimizer step
                     optimizer_was_run = True
                     if self.deepspeed:
@@ -2491,7 +2495,8 @@ class Trainer:
         if self.args.gradient_accumulation_steps > 1 and not self.deepspeed:
             # deepspeed handles loss scaling by gradient_accumulation_steps in its `backward`
             loss = loss / self.args.gradient_accumulation_steps
-
+        
+        print("Memory usage after fwd but before bwd:", process.memory_info().rss/1024/1024/1024, "GB", flush=True)
         if self.do_grad_scaling:
             self.scaler.scale(loss).backward()
         elif self.use_apex:

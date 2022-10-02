@@ -502,7 +502,7 @@ def main():
             labels = labels[:, 1:].reshape(-1)
             preds = preds[:, :-1].reshape(-1)
             return metric.compute(predictions=preds, references=labels)
-
+    
     # Initialize our Trainer
     trainer = Trainer(
         model=model,
