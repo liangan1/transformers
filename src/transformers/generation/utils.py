@@ -2806,14 +2806,31 @@ class GenerationMixin:
                     break
 
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
-
+            first_token = model_inputs["past_key_values"] is None
+            input_bs=input_ids.size()[0]
+            seq_len = input_ids.size()[1]
+            if first_token: 
+                input_bs = input_ids.size()[0]
+                seq_len = input_ids.size()[1]
+                model_inputs["attention_mask"] = model_inputs["attention_mask"][0]
+                model_inputs["input_ids"] = model_inputs["input_ids"][0]
+                model_inputs["position_ids"] = model_inputs["position_ids"][1]
             outputs = self(
                 **model_inputs,
                 return_dict=True,
                 output_attentions=output_attentions,
                 output_hidden_states=output_hidden_states,
             )
-
+            if first_token: 
+                outputs.logits = outputs.logits.expand(input_bs, seq_len, -1)
+                past_key_values = []
+                for key, value in outputs["past_key_values"]:
+                    new_key_shape =  (input_bs, ) + key.size()[1:]
+                    new_val_shape = (input_bs, ) + value.size()[1:]
+                    key = key.expand(new_key_shape).contiguous()
+                    value = value.expand(new_val_shape).contiguous()
+                    past_key_values.append(tuple([key, value]))
+                outputs.past_key_values = tuple(past_key_values)
             if synced_gpus and this_peer_finished:
                 cur_len = cur_len + 1
                 continue  # don't waste resources running the code we don't need

@@ -210,7 +210,6 @@ class GPTJAttention(nn.Module):
         query = self._split_heads(query, self.num_attention_heads, self.head_dim, True)
         key = self._split_heads(key, self.num_attention_heads, self.head_dim, True)
         value = self._split_heads(value, self.num_attention_heads, self.head_dim, False)
-
         if is_torch_fx_proxy(position_ids):
             # The logic to conditionally copy to GPU could not be traced, so we do this
             # every time in the torch.fx case
@@ -231,7 +230,6 @@ class GPTJAttention(nn.Module):
 
             k_rot = apply_rotary_pos_emb(k_rot, sin, cos)
             q_rot = apply_rotary_pos_emb(q_rot, sin, cos)
-
             key = torch.cat([k_rot, k_pass], dim=-1)
             query = torch.cat([q_rot, q_pass], dim=-1)
         else:
